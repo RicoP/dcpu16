@@ -1,9 +1,9 @@
 #ifndef OPCODE_H 
 #define OPCODE_H 
 
-enum opcodeValue {
+typedef enum {
 	//0x00-0x07: register (A, B, C, X, Y, Z, I or J, in that order)
-	A = 0x00, 
+	A = 0, 
 	B, 
 	C, 
 	X, 
@@ -20,7 +20,7 @@ enum opcodeValue {
 	READ_Z, 
 	READ_I, 
 	READ_J, 
-    //0x10-0x17: [nEXT_ word + register]
+    //0x10-0x17: [next word + register]
 	NEXT_A, 
 	NEXT_B, 
 	NEXT_C, 
@@ -41,13 +41,13 @@ enum opcodeValue {
 	PC, 
     //0x1d: O
 	O, 
-    //0x1e: [nEXT_ word]
+    //0x1e: [next word]
 	READ_NEXT, 
-    //0x1f: nEXT_ word (literal)
+    //0x1f: next word (literal)
 	NEXT, 
     //0x20-0x3f: literal value 0x00-0x1f (literal)	
 	LITERAL
-};
+} OPVALUE;
 
 typedef enum {
 	EXT = 0, //Extended

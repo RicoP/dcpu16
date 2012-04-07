@@ -11,7 +11,7 @@ typedef struct {
 	word PC;
 	word SP; 
 	word O; 
-	char* RAM;  
+	void* Ram;  
 } Cpu; 
 
 void cpuExecute(Cpu* cpu); 
@@ -32,7 +32,5 @@ void cpuIFE(Cpu* cpu, word w);
 void cpuIFN(Cpu* cpu, word w); 
 void cpuIFG(Cpu* cpu, word w); 
 void cpuIFB(Cpu* cpu, word w); 
-
-
 
 #endif 

@@ -1,5 +1,7 @@
 #include "opcode.h" 
+#include "util.h" 
 
+INLINE
 char* OpcodeName(OPCODE opcode) {
 	static char* codes[] = {
 		"EXT", 	

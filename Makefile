@@ -1,1 +1,6 @@
-cc run.c cpu.c -o run
+CFLAGS=-Wall -g 
+
+cc CSFLAGS -o run *.c 
+:clean
+	rm run
+
