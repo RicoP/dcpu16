@@ -42,9 +42,9 @@ typedef enum {
     //0x1d: O
 	O, 
     //0x1e: [next word]
-	READ_NEXT, 
+	NEXT_WORD, 
     //0x1f: next word (literal)
-	NEXT, 
+	NEXT_LITERAL, 
     //0x20-0x3f: literal value 0x00-0x1f (literal)	
 	LITERAL
 } OPVALUE;

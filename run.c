@@ -13,11 +13,22 @@ void printHelp();
 
 int main(int argc, char **argv) {
 	Cpu* cpu = NULL; 
+	char* path; 
+	char ok; 
 
-	if(argc == 2) {
+	#ifdef EMSCRIPTEN 
+		ok = 1; 
+		path = "notch.bin"; 
+	#else
+		ok = argc == 2; 
+		path = argv[1];
+	#endif
+
+	if(ok) {
 		cpu = (Cpu*) malloc(sizeof(Cpu)); 			
 		cpu->Ram = malloc(RAM_BYTES); 
-		loadFileIntoRam(cpu, argv[1]); 
+		cpuGlobal = cpu; 
+		loadFileIntoRam(cpu, path); 
 		cpuExecute(cpu); 
 		return 0; 
 	}
