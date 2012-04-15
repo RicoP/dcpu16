@@ -9,7 +9,6 @@
 #include "util.h"
 
 void loadFileIntoRam(Cpu* cpu, char* filename); 
-void printHelp(); 
 
 int main(int argc, char **argv) {
 	Cpu* cpu = NULL; 
@@ -25,9 +24,7 @@ int main(int argc, char **argv) {
 	#endif
 
 	if(ok) {
-		cpu = (Cpu*) malloc(sizeof(Cpu)); 			
-		cpu->Ram = malloc(RAM_BYTES); 
-		cpuGlobal = cpu; 
+		cpu = cpuGet(); 
 		loadFileIntoRam(cpu, path); 
 		cpuExecute(cpu); 
 		return 0; 

@@ -1,8 +1,8 @@
+#include <stdio.h> 
 #include "util.h" 
 #include "cpu.h" 
-#include <stdio.h> 
 
-void CpuInfo(Cpu* cpu) {
+void cpuInfo(Cpu* cpu) {
 	printf(
 		"CPU\n"
 		"A:%04x "
@@ -30,3 +30,25 @@ void CpuInfo(Cpu* cpu) {
 		cpu->O 
 	);
 }
+
+static 
+Cpu* allocCpu() {
+	Cpu*cpu; 
+	cpu = (Cpu*) malloc(sizeof(Cpu)); 			
+	cpu->Ram = malloc(RAM_BYTES); 
+	cpu->PC = 0; 
+	cpu->SP = 0xFFFF; 	
+	return cpu; 
+} 
+
+Cpu* cpuGet() {
+	static Cpu* cpu = NULL;
+	static char init = 0; 
+	if(!init) {
+		init = 1; 
+		cpu = allocCpu(); 
+	} 
+	return cpu; 
+}
+
+

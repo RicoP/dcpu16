@@ -1,16 +1,16 @@
 #ifndef UTIL_H
-#define UTIL_H 
+#define UTIL_H
 
 #include <stdlib.h>
 #include <stdio.h> 
 #include "cpu.h"
 
-void CpuInfo(Cpu* cpu); 
-Cpu* cpuGlobal; 
+void cpuInfo(Cpu* cpu); 
+Cpu* cpuGet(); 
 
 #define ERROR(str, ...) \
 	fprintf(stderr, "[ERROR] " str "\n",##__VA_ARGS__ ); \
-	CpuInfo(cpuGlobal); \
+	cpuInfo(cpuGet()); \
 	exit(1);  
 
 #define INFO(str, ...) \

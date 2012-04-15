@@ -8,6 +8,9 @@ static char* getTargetName(OPVALUE opcode);
 static void notImplemented(Cpu* cpu, OPCODE op);
 static word* getTarget(Cpu* cpu, OPVALUE value); 
 
+static word peekOp(Cpu* cpu); 
+static word opSize(word op); 
+
 static void cpuEXT(Cpu* cpu, word w); 
 static void cpuSET(Cpu* cpu, word w); 
 static void cpuADD(Cpu* cpu, word w); 
@@ -36,10 +39,9 @@ static void cpuIFB(Cpu* cpu, word w);
 
 INLINE
 void cpuExecute(Cpu* cpu) {
-	word* words = (word*)cpu->Ram; 
-	word operation = 0;
 	for(;;) {
-		operation = words[cpu->PC++]; 
+		word* words = (word*)cpu->Ram; 
+		word operation = words[cpu->PC++]; 
 		switch(operation & 0xF) {
 			OPCODE(EXT);	
 			OPCODE(SET);	
@@ -77,6 +79,8 @@ void cpuADD(Cpu* cpu, word w) {
 	word* dest = getTarget(cpu, VALUE_A(w)); 
 	word* orig = getTarget(cpu, VALUE_B(w)); 
  
+	cpu->O = *dest > 0xFFFF - *orig ? 1 : 0; 
+
 	*dest += *orig; 
 }
 
@@ -85,6 +89,8 @@ void cpuSUB(Cpu* cpu, word w) {
 	word* dest = getTarget(cpu, VALUE_A(w)); 
 	word* orig = getTarget(cpu, VALUE_B(w)); 
  
+	cpu->O = *dest < *orig ? 0xFFFF : 0; 
+
 	*dest -= *orig; 
 }
 
@@ -93,6 +99,8 @@ void cpuMUL(Cpu* cpu, word w) {
 	word* dest = getTarget(cpu, VALUE_A(w)); 
 	word* orig = getTarget(cpu, VALUE_B(w)); 
  
+	cpu->O = ((*dest * *orig)>>16)&0xFFFF; 
+
 	*dest *= *orig; 
 }
 
@@ -101,6 +109,8 @@ void cpuDIV(Cpu* cpu, word w) {
 	word* dest = getTarget(cpu, VALUE_A(w)); 
 	word* orig = getTarget(cpu, VALUE_B(w)); 
  
+	cpu->O = (( (*dest<<16) / *orig))&0xFFFF; 
+
 	*dest /= *orig; 
 }
 
@@ -109,13 +119,18 @@ void cpuMOD(Cpu* cpu, word w) {
 	word* dest = getTarget(cpu, VALUE_A(w)); 
 	word* orig = getTarget(cpu, VALUE_B(w)); 
  
-	*dest %= *orig; 
+	if(*orig) 
+		*dest %= *orig; 
+	else
+		*dest = 0; 
 }
 
 INLINE static
 void cpuSHL(Cpu* cpu, word w) { 
 	word* dest = getTarget(cpu, VALUE_A(w)); 
 	word* orig = getTarget(cpu, VALUE_B(w)); 
+
+	cpu->O = ((*dest << *orig) >> 16) & 0xFFFF; 
  
 	*dest = *dest << *orig; 
 }
@@ -125,6 +140,8 @@ void cpuSHR(Cpu* cpu, word w) {
 	word* dest = getTarget(cpu, VALUE_A(w)); 
 	word* orig = getTarget(cpu, VALUE_B(w)); 
  
+	cpu->O = ((*dest << 16) >> *orig) & 0xFFFF; 
+
 	*dest = *dest >> *orig; 
 }
 
@@ -153,16 +170,81 @@ void cpuXOR(Cpu* cpu, word w) {
 }
 
 INLINE static
-void cpuIFE(Cpu* cpu, word w) { notImplemented(cpu, IFE); } 
+void cpuIFE(Cpu* cpu, word w) {
+	word* dest = getTarget(cpu, VALUE_A(w)); 
+	word* orig = getTarget(cpu, VALUE_B(w)); 
+
+	if(*dest == *orig) {
+		return; 
+	} 
+
+	word op = peekOp(cpu); 
+	word size = opSize(op); 
+	cpu->PC += size; 	
+} 
 
 INLINE static
-void cpuIFN(Cpu* cpu, word w) { notImplemented(cpu, IFN); } 
+void cpuIFN(Cpu* cpu, word w) {
+	word* dest = getTarget(cpu, VALUE_A(w)); 
+	word* orig = getTarget(cpu, VALUE_B(w)); 
+
+	if(*dest != *orig) {
+		return; 
+	} 
+
+	word op = peekOp(cpu); 
+	word size = opSize(op); 
+	cpu->PC += size; 	
+} 
 
 INLINE static
-void cpuIFG(Cpu* cpu, word w) { notImplemented(cpu, IFG); } 
+void cpuIFG(Cpu* cpu, word w) {
+	word* dest = getTarget(cpu, VALUE_A(w)); 
+	word* orig = getTarget(cpu, VALUE_B(w)); 
+
+	if(*dest > *orig) {
+		return; 
+	} 
+
+	word op = peekOp(cpu); 
+	word size = opSize(op); 
+	cpu->PC += size; 	
+}
 
 INLINE static
-void cpuIFB(Cpu* cpu, word w) { notImplemented(cpu, IFB); } 
+void cpuIFB(Cpu* cpu, word w) {
+	word* dest = getTarget(cpu, VALUE_A(w)); 
+	word* orig = getTarget(cpu, VALUE_B(w)); 
+
+	if(*dest & *orig) {
+		return; 
+	} 
+
+	word op = peekOp(cpu); 
+	word size = opSize(op); 
+	cpu->PC += size; 	
+}
+
+INLINE static 
+word peekOp(Cpu* cpu) {
+	return ((word*)cpu->Ram)[cpu->PC]; 
+}
+
+INLINE static 
+word opSize(word op) {
+	OPCODE A = VALUE_A(op); 
+	OPCODE B = VALUE_B(op); 
+
+	word size = 1; 
+	
+	if(A >= 0x10 && A <= 0x17 || A == 0x1e || A == 0x1f) 
+		size++; 
+
+	if(B >= 0x10 && B <= 0x17 || B == 0x1e || B == 0x1f) 
+		size++; 
+	
+	return size; 	
+}
 
 #define GET_REG_VAL(REG) \
 	case REG: \
@@ -214,8 +296,9 @@ word* getTarget(Cpu* cpu, OPVALUE value) {
 			literal = wram[cpu->PC++]; 
 			return &literal; 
 	
-		default: 
-			ERROR("can't compute Target 0x%02x.", value); 
+		default: // 0x0 - 0x1F
+			literal = value - LITERAL; 
+			return &literal;  
 	}
 }
 
@@ -271,13 +354,13 @@ char* getTargetName(OPVALUE value) {
 			return "NEXT_LITERAL"; 
 	
 		default: 
-			ERROR("can't compute Target Name 0x%02x.", value); 
+			return "LITERAL";  
 	}
 }
 
 static 
 void notImplemented(Cpu* cpu, OPCODE op) {
-	CpuInfo(cpu); 
+	cpuInfo(cpu); 
 	ERROR("Opcode %s has not been implemented jet.", OpcodeName(op));\
 }
 
