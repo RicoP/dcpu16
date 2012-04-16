@@ -10,6 +10,7 @@ static word* getTarget(Cpu* cpu, OPVALUE value);
 
 static word peekOp(Cpu* cpu); 
 static word opSize(word op); 
+static word opValueSize(OPVALUE w); 
 
 static void cpuEXT(Cpu* cpu, word w); 
 static void cpuSET(Cpu* cpu, word w); 
@@ -43,7 +44,11 @@ void cpuExecute(Cpu* cpu) {
 		word* words = (word*)cpu->Ram; 
 		word operation = words[cpu->PC++]; 
 		switch(operation & 0xF) {
-			OPCODE(EXT);	
+			case EXT: 		
+			INFO("%x EXT %s", operation, getTargetName(VALUE_A(operation))); 
+			cpuEXT(cpu, operation); 
+			break; 
+
 			OPCODE(SET);	
 			OPCODE(ADD);	
 			OPCODE(SUB);	
@@ -64,7 +69,26 @@ void cpuExecute(Cpu* cpu) {
 }
 
 INLINE static
-void cpuEXT(Cpu* cpu, word w) { notImplemented(cpu, EXT); } 
+void cpuEXT(Cpu* cpu, word w) {
+	if(w == 0) {
+		ERROR("BREAK"); 
+	}	
+
+	if( VALUE_A(w) != 1 ) {
+		ERROR("Unknown EXT Opcode %x.", w); 
+	}
+
+	OPVALUE a = (OPVALUE)(w >> 10); 
+
+	word* ram = (word*)cpu->Ram; 
+
+	//Push Address of next Instruction 
+	ram[--cpu->SP] = cpu->PC + opValueSize(a); 	
+
+	word* target = getTarget(cpu, a);
+
+	cpu->PC = *target; 
+} 
 
 INLINE static
 void cpuSET(Cpu* cpu, word w) { 
@@ -227,55 +251,63 @@ void cpuIFB(Cpu* cpu, word w) {
 
 INLINE static 
 word peekOp(Cpu* cpu) {
-	return ((word*)cpu->Ram)[cpu->PC]; 
+	return ((word*)cpu->Ram)[cpu->PC];
+}
+
+INLINE static 
+word opValueSize(OPVALUE w) {
+	if(w >= 0x10 && w <= 0x17 || w == 0x1e || w == 0x1f) 
+		return 1; 
+	return 0; 
 }
 
 INLINE static 
 word opSize(word op) {
-	OPCODE A = VALUE_A(op); 
-	OPCODE B = VALUE_B(op); 
+	OPVALUE A = VALUE_A(op); 
+	OPVALUE B = VALUE_B(op); 
 
-	word size = 1; 
-	
-	if(A >= 0x10 && A <= 0x17 || A == 0x1e || A == 0x1f) 
-		size++; 
-
-	if(B >= 0x10 && B <= 0x17 || B == 0x1e || B == 0x1f) 
-		size++; 
-	
-	return size; 	
+	return opValueSize(A) + opValueSize(B) + 1; 
 }
 
-#define GET_REG_VAL(REG) \
-	case REG: \
+#define CASE_REG_VAL(REG) \
+	case REG:            \
 	return &cpu->REG; 
 
-#define GET_REG_READ(REG) \
-	case READ_ ## REG: \
+#define CASE_REG_READ(REG) \
+	case READ_ ## REG:    \
 	return &wram[cpu->REG]; 
 
-#define GET_NEXT_WORD_PLUS_REG(REG) \
-	case NEXT_ ## REG: \
-	return &wram[cpu->REG + (cpu->PC++)]; 
+#define CASE_NEXT_WORD_PLUS_REG(REG) \
+	case NEXT_ ## REG:              \
+	return &wram[wram[cpu->REG + cpu->PC++]]; 
 
-#define GET_REG(REG) \
-	GET_REG_VAL(REG); \
-	GET_REG_READ(REG); \
-	GET_NEXT_WORD_PLUS_REG(REG); 
+#define CASE_REG(REG)   \
+	CASE_REG_VAL(REG);  \
+	CASE_REG_READ(REG); \
+	CASE_NEXT_WORD_PLUS_REG(REG); 
 
 INLINE static
 word* getTarget(Cpu* cpu, OPVALUE value) {
 	static word literal = 0; 
 	word* wram = (word*)cpu->Ram; 
 	switch(value) {
-		GET_REG(A); 
-		GET_REG(B); 
-		GET_REG(C); 
-		GET_REG(X); 
-		GET_REG(Y); 
-		GET_REG(Z); 
-		GET_REG(I); 
-		GET_REG(J); 
+		CASE_REG(A); 
+		CASE_REG(B); 
+		CASE_REG(C); 
+		CASE_REG(X); 
+		CASE_REG(Y); 
+		CASE_REG(Z); 
+		CASE_REG(I); 
+		CASE_REG(J); 
+	
+		case PC: 
+			return &cpu->PC; 
+	
+		case SP:
+			return &cpu->SP; 
+
+		case O: 
+			return &cpu->O;
 
 		case POP: 
 			return &wram[cpu->SP++]; 
@@ -285,9 +317,6 @@ word* getTarget(Cpu* cpu, OPVALUE value) {
 
 		case PUSH: 
 			return &wram[--cpu->SP]; 
-
-		case O: 
-			return &cpu->O;
 
 		case NEXT_WORD: 
 			return &wram[wram[cpu->PC++]]; 
@@ -302,38 +331,47 @@ word* getTarget(Cpu* cpu, OPVALUE value) {
 	}
 }
 
-#undef GET_REG_VAL
-#undef GET_REG_READ
-#undef GET_NEXT_WORD_PLUS_REG
+#undef CASE_REG_VAL
+#undef CASE_REG_READ
+#undef CASE_NEXT_WORD_PLUS_REG
 
-#define GET_REG_VAL(REG) \
-	case REG: \
+#define CASE_REG_VAL(REG) \
+	case REG:             \
 	return #REG; 
 
-#define GET_REG_READ(REG) \
-	case READ_ ## REG: \
+#define CASE_REG_READ(REG) \
+	case READ_ ## REG:     \
 	return "[" #REG "]"; 
 
-#define GET_NEXT_WORD_PLUS_REG(REG) \
-	case NEXT_ ## REG: \
+#define CASE_NEXT_WORD_PLUS_REG(REG) \
+	case NEXT_ ## REG:               \
 	return "[" #REG " + WORD]"; 
 
-#define GET_REG(REG) \
-	GET_REG_VAL(REG); \
-	GET_REG_READ(REG); \
-	GET_NEXT_WORD_PLUS_REG(REG); 
+#define CASE_REG(REG)   \
+	CASE_REG_VAL(REG);  \
+	CASE_REG_READ(REG); \
+	CASE_NEXT_WORD_PLUS_REG(REG); 
 
 INLINE static
 char* getTargetName(OPVALUE value) {
 	switch(value) {
-		GET_REG(A); 
-		GET_REG(B); 
-		GET_REG(C); 
-		GET_REG(X); 
-		GET_REG(Y); 
-		GET_REG(Z); 
-		GET_REG(I); 
-		GET_REG(J); 
+		CASE_REG(A); 
+		CASE_REG(B); 
+		CASE_REG(C); 
+		CASE_REG(X); 
+		CASE_REG(Y); 
+		CASE_REG(Z); 
+		CASE_REG(I); 
+		CASE_REG(J); 
+
+		case O: 
+			return "O";
+	
+		case PC: 
+			return "PC"; 
+	
+		case SP: 
+			return "SP"; 
 
 		case POP: 
 			return "POP"; 
@@ -343,9 +381,6 @@ char* getTargetName(OPVALUE value) {
 
 		case PUSH: 
 			return "PUSH"; 
-
-		case O: 
-			return "O";
 
 		case NEXT_WORD: 
 			return "NEXT_WORD"; 
@@ -368,7 +403,7 @@ void notImplemented(Cpu* cpu, OPCODE op) {
 #undef VALUE_B
 #undef OPCODE
 
-#undef GET_REG_VAL
-#undef GET_REG_READ
-#undef GET_NEXT_WORD_PLUS_REG
-#undef GET_REG
+#undef CASE_REG_VAL
+#undef CASE_REG_READ
+#undef CASE_NEXT_WORD_PLUS_REG
+#undef CASE_REG

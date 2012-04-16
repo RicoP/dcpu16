@@ -12,7 +12,7 @@ void cpuInfo(Cpu* cpu) {
 		"Y:%04x "
 		"Z:%04x "
 		"I:%04x "
-		"J:%04x | "
+		"J:%04x\n"
 		"PC:%04x "
 		"SP:%04x "
 		"O:%04x\n",
